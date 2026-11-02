@@ -1,0 +1,7 @@
+*.img
+*.ova
+*.vdi
+*.vmdk
+*.zip
+*.gns3project
+*.backup
