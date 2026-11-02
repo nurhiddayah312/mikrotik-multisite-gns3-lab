@@ -8,7 +8,7 @@ The 203.0.113.0/24 range is reserved for documentation (RFC 5737), so it is safe
 |---|---|---|---|---|
 | R-ISP <-> R-HQ | 203.0.113.0/30 | 203.0.113.1 | 203.0.113.2 | Configured, verified |
 | R-ISP <-> R-BR1 | 203.0.113.4/30 | 203.0.113.5 | 203.0.113.6 | Configured, verified |
-| R-ISP <-> R-BR2 | 203.0.113.8/30 | 203.0.113.9 | 203.0.113.10 | Planned |
+| R-ISP <-> R-BR2 | 203.0.113.8/30 | 203.0.113.9 | 203.0.113.10 | Configured, verified |
 
 ## LAN networks (gateway is always .1)
 
@@ -18,8 +18,8 @@ The 203.0.113.0/24 range is reserved for documentation (RFC 5737), so it is safe
 | HQ | 20 | Staff | 10.10.20.0/24 | 10.10.20.1 | 10.10.20.100-200 | Configured, verified |
 | HQ | 30 | Server | 10.10.30.0/24 | 10.10.30.1 | 10.10.30.100-200 | Configured, verified |
 | HQ | 40 | Guest | 10.10.40.0/24 | 10.10.40.1 | 10.10.40.100-200 | Configured, verified |
-| BR1 | - | LAN | 10.20.0.0/24 | 10.20.0.1 | 10.20.0.100-200 | Gateway configured, DHCP planned |
-| BR2 | - | LAN | 10.30.0.0/24 | 10.30.0.1 | 10.30.0.100-200 | Planned |
+| BR1 | - | LAN | 10.20.0.0/24 | 10.20.0.1 | 10.20.0.100-200 | Configured, verified |
+| BR2 | - | LAN | 10.30.0.0/24 | 10.30.0.1 | 10.30.0.100-200 | Configured, verified |
 
 DHCP lease time is the RouterOS default (30 minutes).
 
@@ -37,7 +37,8 @@ RouterOS interface names (`etherX`) do **not** always match the adapter order sh
 | R-BR1 | ether1 | to-ISP | Ethernet1 | R-ISP |
 | R-BR1 | ether2 | to-LAN | Ethernet2 | PC-BR1 |
 
-R-BR2 is added when the router is first started and verified.
+| R-BR2 | ether2 | to-ISP | Ethernet1 | R-ISP |
+| R-BR2 | ether3 | to-LAN | Ethernet2 | PC-BR2 |
 
 ## Routing
 
@@ -46,15 +47,15 @@ Phase 1 uses a static default route on every site router pointing to R-ISP. Dyna
 | Router | Default route via | Status |
 |---|---|---|
 | R-HQ | 203.0.113.1 | Configured, verified |
-| R-BR1 | 203.0.113.5 | Configured |
-| R-BR2 | 203.0.113.9 | Planned |
+| R-BR1 | 203.0.113.5 | Configured, verified |
+| R-BR2 | 203.0.113.9 | Configured, verified |
 
 ## NAT
 
 | Router | Rule | Status |
 |---|---|---|
 | R-HQ | srcnat masquerade, out-interface `to-ISP` | Configured, verified |
-| R-BR1 | srcnat masquerade, out-interface `to-ISP` | Planned |
-| R-BR2 | srcnat masquerade, out-interface `to-ISP` | Planned |
+| R-BR1 | srcnat masquerade, out-interface `to-ISP` | Configured, verified |
+| R-BR2 | srcnat masquerade, out-interface `to-ISP` | Configured, verified |
 
 R-ISP has no route to the private 10.x networks, so NAT on each site router is required for LAN hosts to reach the simulated internet. Direct communication between sites is intentionally not available in Phase 1; it is the goal of Phase 2 (OSPF and site-to-site VPN).

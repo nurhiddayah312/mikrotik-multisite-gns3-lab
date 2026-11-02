@@ -77,6 +77,24 @@ Rules on R-HQ:
 
 ![Firewall rules](images/11-firewall-rules.png)
 
+### Branch sites
+Each branch router provides DHCP and NAT for its own LAN.
+
+BR1 client lease and internet access:
+
+![BR1 DHCP result](images/12-br1-dhcp-result.png)
+![BR1 internet test](images/13-br1-internet-test.png)
+
+Without a path between sites, BR1 cannot reach HQ. R-ISP answers "network unreachable" because it has no route to private networks, which is the motivation for Phase 2:
+
+![BR1 isolated from HQ](images/14-br1-isolated-from-hq.png)
+
+BR2 follows the same design:
+
+![BR2 DHCP result](images/15-br2-dhcp-result.png)
+![BR2 internet test](images/16-br2-internet-test.png)
+![BR2 isolated from BR1](images/17-br2-isolated-from-br1.png)
+
 Test summary: [`docs/test-results.md`](docs/test-results.md).
 
 ## Repository layout
@@ -98,7 +116,7 @@ troubleshooting.md
 ## Project status
 
 - [x] Phase 1: HQ with VLANs, inter-VLAN routing, DHCP, NAT, firewall
-- [ ] Phase 1: Branch routers (DHCP, NAT) and branch connectivity
+- [x] Phase 1: Branch routers (DHCP, NAT) and internet access
 - [ ] Phase 2: OSPF, BGP toward the ISP, site-to-site VPN, failover, QoS
 - [ ] Phase 3: SNMP monitoring with Zabbix (see [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
 
@@ -106,7 +124,7 @@ troubleshooting.md
 
 - The firewall filters the `forward` chain only. Access to the router itself from the Guest VLAN is not hardened yet.
 - Tests use ICMP only.
-- Branches cannot reach each other or HQ until Phase 2.
+- Sites cannot reach each other until Phase 2 (R-ISP has no route to private networks, shown by the "network unreachable" tests).
 
 ## Problems encountered
 
