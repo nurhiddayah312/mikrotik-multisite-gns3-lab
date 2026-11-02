@@ -1,5 +1,5 @@
 [admin@R-ISP] > /export hide-sensitive
-# 2026-11-02 08:10:42 by RouterOS 7.23.8
+# 2026-11-02 10:24:27 by RouterOS 7.23.8
 # system id = ersWVAEHWSB
 #
 /interface ethernet

@@ -48,6 +48,28 @@ R-HQ is the gateway for every VLAN (router-on-a-stick). One VLAN interface per V
 
 Traffic toward `to-ISP` is not matched by rule 5, so internet access is unaffected.
 
+## Site-to-site policy (traffic arriving through the tunnels)
+
+| From | To | Decision |
+|---|---|---|
+| Branch | HQ Server (VLAN 30) | Allow |
+| Branch | HQ Management, Staff, Guest | Deny |
+| HQ Management, Staff | Branch | Allow |
+| HQ Guest | Branch | Deny |
+| Branch | Branch (through HQ) | Allow, by design (hub-and-spoke) |
+
+Tunnel interfaces are members of an interface list named `TUNNEL`, so adding a new branch only requires adding its tunnel to that list.
+
+### Additional rules on R-HQ (forward chain)
+
+| # | Action | Match | Purpose |
+|---|---|---|---|
+| 6 | accept | in TUNNEL list, out vlan30-server | Branches reach the Server VLAN |
+| 7 | drop | in TUNNEL list, out LAN list | Branches cannot reach other HQ VLANs |
+| 8 | drop | in vlan40-guest, out TUNNEL list | Guest cannot reach branches |
+
+(The rules were added after the five rules above and are listed as entries 5-7 by `/ip firewall filter print`, which numbers from 0.)
+
 ## Verification
 
 | Test | Expected | Result |
@@ -62,9 +84,25 @@ Traffic toward `to-ISP` is not matched by rule 5, so internet access is unaffect
 | PC-Mgmt pings PC-Staff (10.10.20.200) | Reply | Pass |
 | PC-Staff pings PC-Mgmt (10.10.10.200) | Blocked | Pass |
 
+### Site-to-site policy tests
+
+| Test | Expected | Result |
+|---|---|---|
+| PC-BR1 pings PC-Server (10.10.30.200) | Reply | Pass |
+| PC-BR1 pings PC-Staff (10.10.20.200) | Blocked | Pass |
+| PC-BR1 pings PC-Mgmt (10.10.10.200) | Blocked | Pass |
+| PC-Mgmt pings PC-BR1 (10.20.0.200) | Reply | Pass |
+| PC-Staff pings PC-BR1 (10.20.0.200) | Reply | Pass |
+| PC-Guest pings PC-BR1 (10.20.0.200) | Blocked | Pass |
+| PC-BR2 pings PC-Server (10.10.30.200) | Reply | Pass |
+| PC-BR2 pings PC-Staff (10.10.20.200) | Blocked | Pass |
+| PC-Mgmt pings PC-BR2 (10.30.0.200) | Reply | Pass |
+| PC-Guest pings PC-BR2 (10.30.0.200) | Blocked | Pass |
+| PC-BR1 pings PC-BR2 (10.30.0.200) | Reply (via HQ) | Pass |
+
 Combinations not listed above follow from the same rules but were not tested individually.
 
 ## Known limitations
 
-- Only the `forward` chain is filtered. The `input` chain (access to R-HQ itself from the Guest VLAN) is not hardened yet and is planned as a separate step.
+- Only the `forward` chain is filtered. The `input` chain (access to R-HQ itself, for example from the Guest VLAN or from the branches) is not hardened yet and is planned as a separate step.
 - Rules are tested with ICMP only. TCP/UDP service tests are planned once a server host is added.

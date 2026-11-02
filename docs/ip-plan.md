@@ -42,7 +42,7 @@ RouterOS interface names (`etherX`) do **not** always match the adapter order sh
 
 ## Routing
 
-Phase 1 uses a static default route on every site router pointing to R-ISP. Dynamic routing (OSPF/BGP) is planned for Phase 2.
+Every site router has a static default route toward R-ISP (internet, Phase 1). Private networks between sites are learned with OSPF over the WireGuard tunnels (Phase 2). R-ISP never learns any private route.
 
 | Router | Default route via | Status |
 |---|---|---|
@@ -59,3 +59,28 @@ Phase 1 uses a static default route on every site router pointing to R-ISP. Dyna
 | R-BR2 | srcnat masquerade, out-interface `to-ISP` | Configured, verified |
 
 R-ISP has no route to the private 10.x networks, so NAT on each site router is required for LAN hosts to reach the simulated internet. Direct communication between sites is intentionally not available in Phase 1; it is the goal of Phase 2 (OSPF and site-to-site VPN).
+
+## Site-to-site tunnels (WireGuard, Phase 2)
+
+Branches initiate the tunnels toward HQ (203.0.113.2). R-ISP only forwards ordinary UDP packets between the WAN addresses.
+
+| Tunnel | HQ interface | HQ address | Branch interface | Branch address | UDP port | Status |
+|---|---|---|---|---|---|---|
+| HQ <-> BR1 | wg-br1 | 10.255.1.1/30 | wg-hq | 10.255.1.2/30 | 13231 | Configured, verified |
+| HQ <-> BR2 | wg-br2 | 10.255.2.1/30 | wg-hq | 10.255.2.2/30 | 13232 | Configured, verified |
+
+Branch peers use `persistent-keepalive=25s`. Each tunnel has its own key pair; private keys never leave the routers and are not stored in this repository.
+
+## Dynamic routing (OSPF, Phase 2)
+
+Single area (backbone 0.0.0.0), OSPFv2, point-to-point on the tunnel interfaces. LAN interfaces are advertised as passive, so no OSPF neighbors are sought on client networks.
+
+| Router | Router ID | Tunnel interfaces | Advertised LANs |
+|---|---|---|---|
+| R-HQ | 10.255.255.1 | wg-br1, wg-br2 | 10.10.10.0/24, 10.10.20.0/24, 10.10.30.0/24 |
+| R-BR1 | 10.255.255.2 | wg-hq | 10.20.0.0/24 |
+| R-BR2 | 10.255.255.3 | wg-hq | 10.30.0.0/24 |
+
+The Guest VLAN (10.10.40.0/24) is intentionally **not** advertised, so branches have no route to it. Branch-to-branch traffic passes through HQ (hub-and-spoke).
+
+Routers also learn the tunnel subnets of the other branches through OSPF (for example R-BR2 shows 10.255.1.0/30), which is expected.

@@ -1,6 +1,6 @@
 # MikroTik Multi-Site Network Lab (GNS3)
 
-A multi-site enterprise network built with MikroTik RouterOS (CHR) in GNS3: one headquarters with four VLANs, two branch offices, and a simulated ISP. The lab covers the skills most often requested in junior network engineer and NOC job postings: VLANs, inter-VLAN routing, DHCP, NAT, and firewall policy, with dynamic routing, site-to-site VPN and monitoring planned next.
+A multi-site enterprise network built with MikroTik RouterOS (CHR) in GNS3: one headquarters with four VLANs, two branch offices, and a simulated ISP. The lab covers the skills most often requested in junior network engineer and NOC job postings: VLANs, inter-VLAN routing, DHCP, NAT, firewall policy, plus WireGuard site-to-site tunnels with OSPF between sites. Monitoring is planned next.
 
 ## Topology
 
@@ -97,6 +97,38 @@ BR2 follows the same design:
 
 Test summary: [`docs/test-results.md`](docs/test-results.md).
 
+### Phase 2: site-to-site VPN, OSPF and site policy
+
+The branches could not reach HQ in Phase 1, because R-ISP knows nothing about private networks (as a real ISP would). Phase 2 connects the sites with WireGuard tunnels over the ISP and shares routes with OSPF.
+
+- One tunnel per branch (HQ is the hub): 10.255.1.0/30 for BR1 and 10.255.2.0/30 for BR2.
+- OSPF (area 0) runs over the tunnels. The Guest VLAN is deliberately not advertised.
+- A `TUNNEL` interface list lets the firewall treat all branches the same way.
+
+Tunnels are up and peers have recently completed a handshake:
+
+![WireGuard peers](images/18-wireguard-peers.png)
+![Tunnel ping](images/19-tunnel-ping.png)
+
+OSPF neighbors and learned routes:
+
+![OSPF neighbors](images/20-ospf-neighbors.png)
+![OSPF routes](images/21-ospf-routes.png)
+
+A branch can now reach HQ (this ping failed with "unreachable" in Phase 1):
+
+![Branch to HQ ping](images/22-branch-to-hq-ping.png)
+
+Routing alone gave a branch access to every advertised HQ VLAN, so a site policy was added on R-HQ: branches reach only the Server VLAN, HQ Management and Staff can reach the branches, and Guest cannot.
+
+![Site firewall rules](images/23-firewall-site-rules.png)
+![Branch policy tests](images/24-branch-policy-tests.png)
+
+The second branch uses the same design, and traffic between branches passes through HQ:
+
+![BR2 tunnel and OSPF](images/25-br2-tunnel-and-ospf.png)
+![Branch to branch ping](images/26-branch-to-branch-ping.png)
+
 ## Repository layout
 
 ```
@@ -117,14 +149,15 @@ troubleshooting.md
 
 - [x] Phase 1: HQ with VLANs, inter-VLAN routing, DHCP, NAT, firewall
 - [x] Phase 1: Branch routers (DHCP, NAT) and internet access
-- [ ] Phase 2: OSPF, BGP toward the ISP, site-to-site VPN, failover, QoS
+- [x] Phase 2: WireGuard site-to-site tunnels, OSPF, site firewall policy
+- [ ] Phase 2: Router hardening (input chain), BGP toward the ISP, failover, QoS
 - [ ] Phase 3: SNMP monitoring with Zabbix (see [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
 
 ## Known limitations
 
-- The firewall filters the `forward` chain only. Access to the router itself from the Guest VLAN is not hardened yet.
+- The firewall filters the `forward` chain only. Access to the routers themselves (from the Guest VLAN or from the branches) is not hardened yet.
 - Tests use ICMP only.
-- Sites cannot reach each other until Phase 2 (R-ISP has no route to private networks, shown by the "network unreachable" tests).
+- Branch-to-branch traffic passes through HQ (hub-and-spoke), and branches are not isolated from each other.
 
 ## Problems encountered
 

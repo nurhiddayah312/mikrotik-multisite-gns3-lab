@@ -43,10 +43,60 @@ TTL 63 on inter-VLAN and internet replies shows the packet crossed one router ho
 | 15 | PC-BR2 | 203.0.113.1 (R-ISP, HQ link) | Reply via NAT | Reply, TTL 63 |
 | 16 | PC-BR2 | 10.20.0.200 (BR1 client) | No path (Phase 1) | Destination network unreachable |
 
-### Why tests 12 and 16 fail (expected)
+### Why tests 12 and 16 fail (expected, Phase 1 state)
+
+These results were captured before the tunnels and OSPF were configured.
 
 The packets leave the branch (NAT applies) and reach R-ISP, which has no route to any private 10.x network and answers with ICMP "network unreachable". This confirms the cause is the missing path between sites, not a firewall rule, and it is the motivation for Phase 2 (site-to-site VPN and dynamic routing).
 
 ## Screenshots
 
-See the `images/` folder, files `05` to `17`.
+See the `images/` folder, files `05` to `17` for Phase 1.
+
+## Phase 2: tunnels and routing
+
+### WireGuard tunnels
+
+| # | From | To | Observed |
+|---|---|---|---|
+| 17 | R-HQ | 10.255.1.2 (BR1 tunnel) | 5 of 5 replies, average about 29 ms |
+| 18 | R-BR1 | 10.255.1.1 (HQ tunnel) | 5 of 5 replies, average about 25 ms |
+| 19 | R-BR2 | 10.255.2.1 (HQ tunnel) | 3 of 3 replies, average about 22 ms |
+
+Both HQ peers showed a recent `last-handshake` and growing rx/tx counters.
+
+### OSPF
+
+- R-HQ has two neighbors in state Full (router IDs 10.255.255.2 and 10.255.255.3).
+- R-BR2 learned the HQ LANs (10.10.10.0/24, 10.10.20.0/24, 10.10.30.0/24), the BR1 LAN (10.20.0.0/24) and the BR1 tunnel subnet.
+- The Guest VLAN (10.10.40.0/24) was not learned by any branch, as intended.
+
+### Reachability before the site firewall rules
+
+| # | From | To | Observed |
+|---|---|---|---|
+| 20 | PC-BR1 | 10.10.20.200 (HQ Staff) | Reply, TTL 62 (was "unreachable" in Phase 1) |
+
+This showed that OSPF over the tunnel works and that a branch could reach every advertised HQ VLAN until the site policy was added.
+
+### Site-to-site policy
+
+| # | From | To | Expected | Observed |
+|---|---|---|---|---|
+| 21 | PC-BR1 | 10.10.30.200 (Server) | Reply | Reply, TTL 62 |
+| 22 | PC-BR1 | 10.10.20.200 (Staff) | Blocked | 5 of 5 timeouts |
+| 23 | PC-BR1 | 10.10.10.200 (Mgmt) | Blocked | 5 of 5 timeouts |
+| 24 | PC-Mgmt | 10.20.0.200 (BR1) | Reply | Reply, TTL 62 |
+| 25 | PC-Staff | 10.20.0.200 (BR1) | Reply | Reply, TTL 62 |
+| 26 | PC-Guest | 10.20.0.200 (BR1) | Blocked | 5 of 5 timeouts |
+| 27 | PC-BR2 | 10.10.30.200 (Server) | Reply | Reply, TTL 62 |
+| 28 | PC-BR2 | 10.10.20.200 (Staff) | Blocked | 5 of 5 timeouts |
+| 29 | PC-Mgmt | 10.30.0.200 (BR2) | Reply | Reply, TTL 62 |
+| 30 | PC-Guest | 10.30.0.200 (BR2) | Blocked | 5 of 5 timeouts |
+| 31 | PC-BR1 | 10.30.0.200 (BR2) | Reply via HQ | Reply, TTL 61 |
+
+TTL 62 means two router hops (branch router and HQ). TTL 61 for branch-to-branch traffic means three hops (BR1, HQ, BR2), confirming the hub-and-spoke path.
+
+### Screenshots
+
+See the `images/` folder, files `18` to `26`.
