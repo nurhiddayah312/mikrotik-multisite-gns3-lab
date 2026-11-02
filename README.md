@@ -1,127 +1,113 @@
-# PogonaHealth
+# MikroTik Multi-Site Network Lab (GNS3)
 
-**IoT and Deep Learning-based monitoring system for temperature tracking and early fungal skin infection detection in *Pogona vitticeps* (bearded dragon).**
+A multi-site enterprise network built with MikroTik RouterOS (CHR) in GNS3: one headquarters with four VLANs, two branch offices, and a simulated ISP. The lab covers the skills most often requested in junior network engineer and NOC job postings: VLANs, inter-VLAN routing, DHCP, NAT, and firewall policy, with dynamic routing, site-to-site VPN and monitoring planned next.
 
-![Python](https://img.shields.io/badge/Python-3.9-blue)
-![YOLOv8](https://img.shields.io/badge/YOLOv8n-Ultralytics-purple)
-![ESP32](https://img.shields.io/badge/ESP32-Arduino-teal)
-![Laravel](https://img.shields.io/badge/Laravel-Framework-red)
-![Raspberry Pi](https://img.shields.io/badge/Raspberry_Pi-4B-c51a4a)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+## Topology
 
-Final Year Project (Tugas Akhir) — Applied Bachelor of Telecommunication Engineering, Politeknik Negeri Semarang, 2026.
+![Topology overview](images/01-topology-overview.png)
 
----
-
-## Overview
-
-*Pogona vitticeps* is highly susceptible to *yellow fungus disease*, a progressive skin infection that is difficult for owners to detect early through visual inspection alone. PogonaHealth combines an IoT temperature monitoring pipeline with a real-time computer vision detection system to help owners catch early signs of infection and maintain optimal enclosure conditions — accessible remotely via a web dashboard and Telegram bot.
-
-## Key results
-
-| Metric | Result |
+| Device | Role |
 |---|---|
-| Temperature sensor accuracy (DS18B20) | 98.22% |
-| Automated relay control (NTP-based) | 100% success |
-| YOLOv8n detection accuracy | 97.17% |
-| YOLOv8n mAP50 | 98.62% |
-| Average temperature transmission delay | 271.32 ms ("Good", TIPHON standard) |
-| Network packet loss (Wireshark test) | 0% |
-| Optimal camera position (confidence) | 83.0%, 100% accuracy |
+| R-ISP | Simulated internet provider |
+| R-HQ | Headquarters router, gateway for VLANs 10/20/30/40 |
+| R-BR1, R-BR2 | Branch routers |
+| SwitchVLAN | GNS3 Ethernet switch, trunk to R-HQ and access ports per VLAN |
+| PC-Mgmt, PC-Staff, PC-Server, PC-Guest | VPCS clients, one per HQ VLAN |
+| PC-BR1, PC-BR2 | VPCS clients at the branches |
 
-## System architecture
+## Tools
+
+- GNS3 2.2.61 with GNS3 VM on VirtualBox
+- MikroTik RouterOS CHR 7.23.8
+- VPCS for client simulation
+
+## Addressing
+
+Full tables are in [`docs/ip-plan.md`](docs/ip-plan.md) and [`docs/vlan-plan.md`](docs/vlan-plan.md).
+
+| VLAN | Name | Network |
+|---|---|---|
+| 10 | Management | 10.10.10.0/24 |
+| 20 | Staff | 10.10.20.0/24 |
+| 30 | Server | 10.10.30.0/24 |
+| 40 | Guest | 10.10.40.0/24 |
+
+WAN links between R-ISP and each site use /30 subnets from 203.0.113.0/24 (documentation range, RFC 5737).
+
+## What is implemented
+
+### Layer 2 and VLANs
+The switch trunks all VLANs to R-HQ (dot1q) and places each client on an access port.
+
+![Switch VLAN configuration](images/02-switch-vlan-config.png)
+
+R-HQ routes between VLANs with one VLAN interface per VLAN (router-on-a-stick).
+
+![VLAN configuration on R-HQ](images/05-vlan-config-hq.png)
+
+### WAN connectivity
+Router links were verified with `ping` and by checking which interfaces are running.
+
+![WAN ping test](images/03-wan-ping-test.png)
+![Running interfaces](images/04-interface-running.png)
+
+### DHCP
+Each VLAN has its own DHCP server and pool on R-HQ.
+
+![DHCP leases on R-HQ](images/06-dhcp-leases.png)
+![DHCP result on a client](images/07-pc-dhcp-result.png)
+
+### NAT and internet access
+R-HQ masquerades private traffic toward R-ISP, so VLAN clients can reach the simulated internet.
+
+![NAT and internet test](images/08-nat-internet-test.png)
+
+### Firewall policy
+Inter-VLAN traffic is controlled on R-HQ. Management can reach every VLAN, Staff can reach Server, and every other inter-VLAN flow is dropped. Internet access stays open for all VLANs.
+
+Guest to Staff is blocked:
+
+![Guest isolation blocked](images/09-guest-isolation-blocked.png)
+
+Staff to Server is allowed:
+
+![Staff to Server allowed](images/10-guest-isolation-allowed.png)
+
+Rules on R-HQ:
+
+![Firewall rules](images/11-firewall-rules.png)
+
+Test summary: [`docs/test-results.md`](docs/test-results.md).
+
+## Repository layout
 
 ```
-DS18B20 --(One-Wire)--> ESP32 --(MQTT)--> Raspberry Pi --(HTTP API)--> Hostinger (Laravel + MySQL)
-                            |                    |
-                       Relay / LCD          YOLOv8n detection
-                                                  |
-                                          Flask streaming (MJPEG)
-                                                  |
-                                          Cloudflare Tunnel
-                                                  |
-                                    Website Dashboard  +  Telegram Bot
+configs/   RouterOS exports (.rsc), sensitive data hidden
+docs/      IP plan, VLAN plan, test results
+images/    Screenshots used in this README
+troubleshooting.md
 ```
 
-- **ESP32** reads ambient temperature via a DS18B20 sensor, displays it locally on an LCD, and controls UVB/daylight lamps via relay based on NTP-synced scheduling.
-- **Raspberry Pi 4** runs a YOLOv8n model for real-time fungal lesion detection from a live camera feed, and bridges sensor data from MQTT to a cloud REST API.
-- **Laravel + MySQL (Hostinger)** stores temperature history and serves the web dashboard.
-- **Telegram Bot** sends automatic alerts on detection and responds to interactive commands (`/status`, `/suhu`, `/jamur`).
-- **Cloudflare Tunnel** exposes the local video stream publicly without requiring a static IP.
+## Reproducing the lab
 
-## Tech stack
+1. Install GNS3 and the GNS3 VM (same version), then add a MikroTik CHR image as a QEMU template.
+2. Build the topology shown above and cable it according to [`docs/ip-plan.md`](docs/ip-plan.md).
+3. Verify which RouterOS interface is connected to each link (`/interface print`, `/ip neighbor print`); port names do not always follow GNS3 adapter order.
+4. Import the configuration of each router from `configs/` (`/import file-name=r-hq.rsc`).
 
-**Hardware:** ESP32, DS18B20, Raspberry Pi 4 Model B, Logitech C920 webcam, 2-channel relay module, I2C LCD
+## Project status
 
-**Firmware / Embedded:** Arduino IDE (C++), OneWire, DallasTemperature, PubSubClient
+- [x] Phase 1: HQ with VLANs, inter-VLAN routing, DHCP, NAT, firewall
+- [ ] Phase 1: Branch routers (DHCP, NAT) and branch connectivity
+- [ ] Phase 2: OSPF, BGP toward the ISP, site-to-site VPN, failover, QoS
+- [ ] Phase 3: SNMP monitoring with Zabbix (see [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
 
-**Computer vision:** Python, OpenCV, Ultralytics YOLOv8n, Roboflow (dataset annotation & augmentation)
+## Known limitations
 
-**Backend:** Laravel (PHP), MySQL, REST API
+- The firewall filters the `forward` chain only. Access to the router itself from the Guest VLAN is not hardened yet.
+- Tests use ICMP only.
+- Branches cannot reach each other or HQ until Phase 2.
 
-**IoT communication:** MQTT (Mosquitto broker), HTTP
+## Problems encountered
 
-**Deployment:** Raspberry Pi OS, Cloudflare Tunnel, Hostinger
-
-**Notifications:** Telegram Bot API
-
-## Repository structure
-
-```
-pogonahealth/
-├── esp32-firmware/        ESP32 firmware (temperature reading, relay control, MQTT publish)
-├── raspberry-pi/          YOLOv8n detection server, MQTT-to-API bridge, Telegram bot
-├── website-laravel/       Web dashboard, REST API, database migrations
-├── model-training/        Dataset preprocessing and YOLOv8n training notebook
-└── docs/                  Architecture diagrams and documentation assets
-```
-
-## How it works
-
-1. **Temperature pipeline** — DS18B20 publishes readings to a local MQTT broker on the Raspberry Pi every 5 seconds. A bridge script forwards each reading to a Laravel REST API endpoint, which persists it to a MySQL database on Hostinger.
-2. **Detection pipeline** — A webcam feed is continuously processed by a YOLOv8n model running on the Raspberry Pi. Detected bounding boxes and confidence scores are rendered onto the video frame and served as an MJPEG stream via Flask.
-3. **Remote access** — Cloudflare Tunnel exposes the local video stream through a public URL, embedded directly into the Laravel dashboard.
-4. **Alerts** — When a fungal lesion is detected above a confidence threshold, the system triggers an automatic Telegram notification (with a 30-minute cooldown to prevent spam) including detection confidence, current temperature, and a suggested action.
-
-## Setup
-
-### 1. ESP32 firmware
-Open `esp32-firmware/pogonahealth_esp32.ino` in Arduino IDE, update WiFi and MQTT credentials, then flash to the ESP32.
-
-### 2. Raspberry Pi
-```bash
-cd raspberry-pi
-pip install -r requirements.txt
-python3 detect_web_server.py     # YOLOv8n detection + video stream
-python3 bridge_iot.py            # MQTT-to-API bridge
-python3 telegram_bot.py          # Telegram bot service
-```
-
-### 3. Laravel dashboard
-```bash
-cd website-laravel
-composer install
-cp .env.example .env             # then fill in your own database credentials
-php artisan key:generate
-php artisan migrate
-php artisan serve
-```
-
-## Model training
-
-The YOLOv8n model was trained on a custom dataset of 706 images (later augmented to 1,554), annotated on the back and leg regions of *Pogona vitticeps* across two classes: `healthy` and `fungal`. Training was run for 100 epochs with batch size 8 on a GPU-enabled Google Colab instance. Full training notebook available in `model-training/`.
-
-## Testing methodology
-
-The system was evaluated across five dimensions: sensor accuracy (against a calibrated digital thermometer), relay control timing, model detection accuracy (confusion matrix, precision/recall/mAP), network QoS (application-level delay/data loss plus infrastructure-level packet loss/RTT/jitter via Wireshark and Ookla Speedtest), and optimal camera placement (9-zone grid test across 3 lighting conditions).
-
-## Authors
-
-**Cahaya Jaya Prabasa** & **Nurul Hidayah**
-Applied Bachelor of Telecommunication Engineering, Politeknik Negeri Semarang
-
-Supervised by Dr. Ir. Eko Supriyanto, S.T., M.T., IPM and Roni Apriantoro, S.Tr.T., M.Tr.T.
-
-## License
-
-This project is released under the MIT License for educational and portfolio purposes.
+See [`troubleshooting.md`](troubleshooting.md).
