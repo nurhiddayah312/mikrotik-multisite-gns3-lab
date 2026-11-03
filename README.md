@@ -160,12 +160,15 @@ troubleshooting.md
 
 ## Project status
 
+**Completed**
 - [x] Phase 1: HQ with VLANs, inter-VLAN routing, DHCP, NAT, firewall
 - [x] Phase 1: Branch routers (DHCP, NAT) and internet access
 - [x] Phase 2: WireGuard site-to-site tunnels, OSPF, site firewall policy
 - [x] Router hardening (input chain, service lockdown) on HQ and both branches
-- [ ] Phase 2: BGP toward the ISP, failover, QoS
-- [ ] Phase 3: SNMP monitoring with Zabbix (see [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
+
+**Planned**
+- [ ] Phase 3: SNMP monitoring with Zabbix (builds on [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
+- [ ] Optional extensions: BGP toward the ISP, failover, QoS
 
 ## Known limitations
 
