@@ -1,12 +1,11 @@
-[admin@R-HQ] > /export hide-sensitive
-# 2026-11-02 10:25:15 by RouterOS 7.23.8
+# 2026-11-03 02:55:37 by RouterOS 7.23.8
 # system id = cqyeOiIGK5M
 #
 /interface ethernet
-set [ find default-name=ether1 ] disable-running-check=no
-set [ find default-name=ether4 ] disable-running-check=no
-set [ find default-name=ether2 ] disable-running-check=no name=to-ISP
-set [ find default-name=ether3 ] disable-running-check=no name=to-SWITCH
+set [ find default-name=ether3 ] disable-running-check=no name=ether1
+set [ find default-name=ether2 ] disable-running-check=no name=ether4
+set [ find default-name=ether4 ] disable-running-check=no name=to-ISP
+set [ find default-name=ether1 ] disable-running-check=no name=to-SWITCH
 /interface wireguard
 add listen-port=13231 mtu=1420 name=wg-br1
 add listen-port=13232 mtu=1420 name=wg-br2
@@ -32,6 +31,8 @@ add address-pool=pool-guest interface=vlan40-guest name=dhcp-guest
 add name=ospf-main router-id=10.255.255.1
 /routing ospf area
 add instance=ospf-main name=backbone
+/ip neighbor discovery-settings
+set discover-interface-list=none
 /interface list member
 add interface=vlan10-mgmt list=LAN
 add interface=vlan20-staff list=LAN
@@ -76,10 +77,38 @@ add action=drop chain=forward comment="Branch to other HQ VLANs" in-interface-li
     out-interface-list=LAN
 add action=drop chain=forward comment="Guest to branches" in-interface=vlan40-guest \
     out-interface-list=TUNNEL
+add action=accept chain=input comment=established connection-state=established,related
+add action=drop chain=input comment=invalid connection-state=invalid
+add action=accept chain=input comment=wireguard dst-port=13231,13232 in-interface=to-ISP \
+    protocol=udp
+add action=accept chain=input comment=ospf in-interface-list=TUNNEL protocol=ospf
+add action=accept chain=input comment=dhcp dst-port=67 in-interface-list=LAN protocol=udp
+add action=accept chain=input comment=icmp-isp in-interface=to-ISP protocol=icmp
+add action=accept chain=input comment=icmp-tunnel in-interface-list=TUNNEL protocol=icmp \
+    src-address=10.255.0.0/16
+add action=accept chain=input comment=icmp-mgmt in-interface=vlan10-mgmt protocol=icmp
+add action=accept chain=input comment=icmp-staff-gw dst-address=10.10.20.1 in-interface=\
+    vlan20-staff protocol=icmp
+add action=accept chain=input comment=icmp-server-gw dst-address=10.10.30.1 in-interface=\
+    vlan30-server protocol=icmp
+add action=accept chain=input comment=icmp-guest-gw dst-address=10.10.40.1 in-interface=\
+    vlan40-guest protocol=icmp
+add action=accept chain=input comment=mgmt-ssh-winbox dst-port=22,8291 in-interface=\
+    vlan10-mgmt protocol=tcp
+add action=drop chain=input comment=drop-all-input
 /ip firewall nat
 add action=masquerade chain=srcnat out-interface=to-ISP
 /ip route
 add dst-address=0.0.0.0/0 gateway=203.0.113.1
+/ip service
+set ftp disabled=yes
+set ssh address=10.10.10.0/24
+set telnet disabled=yes
+set www disabled=yes
+set reverse-proxy disabled=yes
+set winbox address=10.10.10.0/24
+set api disabled=yes
+set api-ssl disabled=yes
 /routing ospf interface-template
 add area=backbone interfaces=wg-br1 type=ptp
 add area=backbone networks=10.10.10.0/24 passive
@@ -88,4 +117,9 @@ add area=backbone networks=10.10.30.0/24 passive
 add area=backbone interfaces=wg-br2 type=ptp
 /system identity
 set name=R-HQ
-[admin@R-HQ] >
+/tool bandwidth-server
+set enabled=no
+/tool mac-server
+set allowed-interface-list=none
+/tool mac-server mac-winbox
+set allowed-interface-list=none

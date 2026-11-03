@@ -99,4 +99,45 @@ TTL 62 means two router hops (branch router and HQ). TTL 61 for branch-to-branch
 
 ### Screenshots
 
-See the `images/` folder, files `18` to `26`.
+See the `images/` folder, files `18` to `26`. Hardening screenshots are files `27` to `31`.
+
+## Router hardening (input chain)
+
+Run after the input rules and service lockdown were applied on all three routers. Rule counts checked on the routers: R-HQ 21 filter rules in total (8 forward, 13 input), R-BR1 and R-BR2 10 input rules each, with `drop-all-input` present.
+
+### R-HQ
+
+| # | From | To | Expected | Result |
+|---|---|---|---|---|
+| 32 | PC-Guest | 10.10.40.1 (own gateway) | Reply | Pass |
+| 33 | PC-Guest | 10.10.10.1 (router address in another VLAN) | Blocked | Pass |
+| 34 | PC-Staff | 10.10.20.1 (own gateway) | Reply | Pass |
+| 35 | PC-Staff | 10.10.30.1 (router address in another VLAN) | Blocked | Pass |
+| 36 | PC-Mgmt | 10.10.10.1 | Reply | Pass |
+| 37 | PC-BR1 | 10.10.10.1 (HQ router through the tunnel) | Blocked | Pass |
+| 38 | PC-BR1 | 10.10.30.200 (Server, forwarded traffic) | Reply | Pass |
+| 39 | PC-Staff | 203.0.113.1 (internet) | Reply | Pass |
+
+### Branches
+
+| # | From | To | Expected | Result |
+|---|---|---|---|---|
+| 40 | PC-BR1 | 10.20.0.1 (own gateway) | Reply | Pass |
+| 41 | PC-BR1 | 203.0.113.6 (router WAN address) | Blocked | Pass |
+| 42 | PC-BR1 | 10.10.30.200 (Server through HQ) | Reply | Pass |
+| 43 | PC-Mgmt | 10.255.1.2 (BR1 tunnel address) | Reply | Pass |
+| 44 | PC-Staff | 10.255.1.2 (BR1 tunnel address) | Blocked | Pass |
+| 45 | PC-BR2 | 10.30.0.1 (own gateway) | Reply | Pass |
+| 46 | PC-BR2 | 203.0.113.10 (router WAN address) | Blocked | Pass |
+| 47 | PC-Mgmt | 10.255.2.2 (BR2 tunnel address) | Reply | Pass |
+| 48 | PC-Staff | 10.255.2.2 (BR2 tunnel address) | Blocked | Pass |
+
+Test 44 initially passed (reply) because the ICMP rule on R-BR1 had no source restriction. It was fixed by adding the `mgmt-nets` source address list, and the test then behaved as expected. The same restriction was applied on R-BR2 from the start.
+
+### Side effects checked
+
+- Traffic through the routers (internet, inter-site policy) kept working.
+- R-HQ kept two OSPF neighbors in Full state, and each branch kept one.
+- WireGuard handshakes continued to refresh on all peers.
+
+Screenshots: files `27` to `31`.

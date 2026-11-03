@@ -104,5 +104,5 @@ Combinations not listed above follow from the same rules but were not tested ind
 
 ## Known limitations
 
-- Only the `forward` chain is filtered. The `input` chain (access to R-HQ itself, for example from the Guest VLAN or from the branches) is not hardened yet and is planned as a separate step.
+- The `input` chain is hardened on R-HQ, R-BR1 and R-BR2 (see [`hardening.md`](hardening.md)). R-ISP, the simulated internet, is not hardened.
 - Rules are tested with ICMP only. TCP/UDP service tests are planned once a server host is added.

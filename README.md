@@ -129,6 +129,19 @@ The second branch uses the same design, and traffic between branches passes thro
 ![BR2 tunnel and OSPF](images/25-br2-tunnel-and-ospf.png)
 ![Branch to branch ping](images/26-branch-to-branch-ping.png)
 
+### Router hardening
+
+Every router now drops anything addressed to it that is not explicitly allowed (WireGuard, OSPF, DHCP, limited ping, and SSH/Winbox from the Management VLAN only). Insecure services (telnet, ftp, www, api) are disabled, and the neighbor discovery and MAC access tools are turned off. The full rule list is in [`docs/hardening.md`](docs/hardening.md).
+
+![HQ input rules](images/27-hq-input-rules.png)
+![Input hardening tests](images/28-input-hardening-tests.png)
+![Hardened services](images/29-services-hardened.png)
+
+Branch routers use the same pattern, and SSH/Winbox reach them only from the HQ Management VLAN through the tunnel:
+
+![Branch input rules](images/30-br-input-rules.png)
+![Branch hardening tests](images/31-br-hardening-tests.png)
+
 ## Repository layout
 
 ```
@@ -150,12 +163,13 @@ troubleshooting.md
 - [x] Phase 1: HQ with VLANs, inter-VLAN routing, DHCP, NAT, firewall
 - [x] Phase 1: Branch routers (DHCP, NAT) and internet access
 - [x] Phase 2: WireGuard site-to-site tunnels, OSPF, site firewall policy
-- [ ] Phase 2: Router hardening (input chain), BGP toward the ISP, failover, QoS
+- [x] Router hardening (input chain, service lockdown) on HQ and both branches
+- [ ] Phase 2: BGP toward the ISP, failover, QoS
 - [ ] Phase 3: SNMP monitoring with Zabbix (see [zabbix-vm-noc-lab](https://github.com/nurhiddayah312/zabbix-vm-noc-lab)), configuration backup automation
 
 ## Known limitations
 
-- The firewall filters the `forward` chain only. Access to the routers themselves (from the Guest VLAN or from the branches) is not hardened yet.
+- R-ISP (the simulated internet) is not hardened; the three site routers are.
 - Tests use ICMP only.
 - Branch-to-branch traffic passes through HQ (hub-and-spoke), and branches are not isolated from each other.
 
